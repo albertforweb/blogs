@@ -1,0 +1,29 @@
+{{> header}}
+
+<div class="container list-page">
+  <header class="list-header">
+    <h1>Tag: {{tag.name}}</h1>
+  </header>
+
+  <div class="posts-list">
+    {{#each posts}}
+    <article class="post-card">
+      {{#if this.featured_image}}
+      <a class="post-thumb" href="{{baseUrl}}/post/{{this.slug}}"><img src="{{media this.featured_image}}" alt="{{this.title}}" loading="lazy" /></a>
+      {{/if}}
+      <div class="post-card-body">
+        <h2 class="post-card-title"><a href="{{baseUrl}}/post/{{this.slug}}">{{this.title}}</a></h2>
+        <p class="post-meta"><time datetime="{{this.published_at}}">{{formatDate this.published_at}}</time> by {{this.author_username}}</p>
+        {{#if this.excerptText}}<p class="post-card-excerpt">{{stripHtml this.excerptText max=220}}</p>{{/if}}
+        <a class="read-more" href="{{baseUrl}}/post/{{this.slug}}">Read more →</a>
+      </div>
+    </article>
+    {{else}}
+    <p class="no-results">No posts with this tag yet.</p>
+    {{/each}}
+  </div>
+
+  {{pagination pagination}}
+</div>
+
+{{> footer}}

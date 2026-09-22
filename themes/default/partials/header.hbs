@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{pageTitle}}</title>
+  {{{settings.custom_meta}}}
+  {{#if pageDescription}}<meta name="description" content="{{pageDescription}}" />{{/if}}
+  <link rel="canonical" href="{{#if canonical}}{{canonical}}{{else}}{{baseUrl}}/{{/if}}" />
+  <meta property="og:title" content="{{pageTitle}}" />
+  {{#if pageDescription}}<meta property="og:description" content="{{pageDescription}}" />{{/if}}
+  <meta property="og:type" content="{{#if post}}article{{else}}website{{/if}}" />
+  {{#if post.featured_image}}<meta property="og:image" content="{{media post.featured_image}}" />{{/if}}
+  <link rel="alternate" type="application/rss+xml" title="{{siteTitle}}" href="{{baseUrl}}/rss.xml" />
+  {{#if settings.ga_id}}<script async src="https://www.googletagmanager.com/gtag/js?id={{settings.ga_id}}"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{settings.ga_id}}');</script>{{/if}}
+  <link rel="stylesheet" href="{{baseUrl}}/theme.css" />
+</head>
+<body>
+<div class="site">
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <a class="site-logo" href="{{baseUrl}}/">{{siteTitle}}</a>
+        {{#if siteTagline}}<p class="site-tagline">{{siteTagline}}</p>{{/if}}
+      </div>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="{{baseUrl}}/" class="nav-link">Home</a>
+        {{#each categories}}
+          {{#ifeq this.slug ../currentCategory}}{{else}}<a class="nav-link" href="{{baseUrl}}/category/{{this.slug}}">{{this.name}}</a>{{/ifeq}}
+        {{/each}}
+        <a class="nav-link" href="{{baseUrl}}/search">Search</a>
+      </nav>
+    </div>
+  </header>
+  <main class="site-main">

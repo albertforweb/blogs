@@ -1,0 +1,103 @@
+{{> header}}
+
+<div class="container post-page">
+  <article class="post-full">
+    <header class="post-header">
+      <h1 class="post-title">{{post.title}}</h1>
+      <p class="post-meta">
+        <time datetime="{{post.published_at}}">{{formatDate post.published_at}}</time>
+        by {{post.author_username}}
+        {{#if post.category}} · <a href="{{baseUrl}}/category/{{post.category.slug}}">{{post.category.name}}</a>{{/if}}
+      </p>
+    </header>
+
+    {{#if post.featured_image}}
+    <img class="post-featured" src="{{media post.featured_image}}" alt="{{post.title}}" />
+    {{/if}}
+
+    <div class="post-content">
+      {{{post.contentHtml}}}
+    </div>
+
+    {{#if post.tags}}
+    <div class="post-tags">
+      {{#each post.tags}}
+      <a class="tag-chip" href="{{baseUrl}}/tag/{{this.slug}}">#{{this.name}}</a>
+      {{/each}}
+    </div>
+    {{/if}}
+
+    <nav class="post-nav">
+      {{#if prevPost}}<a class="post-nav-link" href="{{prevPost.url}}">← {{prevPost.title}}</a>{{/if}}
+      {{#if nextPost}}<a class="post-nav-link" href="{{nextPost.url}}">{{nextPost.title}} →</a>{{/if}}
+    </nav>
+  </article>
+
+  <section class="comments">
+    <h2>Comments ({{commentCount}})</h2>
+    {{#each comments}}
+    <div class="comment">
+      <div class="comment-meta"><strong>{{this.author}}</strong> · {{formatDate this.created_at}}</div>
+      <p class="comment-content">{{this.content}}</p>
+    </div>
+    {{else}}
+    <p class="no-results">No comments yet.</p>
+    {{/each}}
+
+    {{#if commentsOpen}}
+    <form id="comment-form" class="comment-form" autocomplete="off">
+      <input type="text" name="website" id="hp" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true" />
+      <h3>Leave a comment</h3>
+      <div class="form-row">
+        <input type="text" name="author" placeholder="Your name *" required maxlength="100" />
+      </div>
+      <div class="form-row">
+        <input type="email" name="email" placeholder="Email (optional, never shown)" maxlength="150" />
+      </div>
+      <div class="form-row">
+        <textarea name="content" placeholder="Your comment *" required maxlength="2000" rows="5"></textarea>
+      </div>
+      <div class="form-row">
+        <button type="submit" class="btn">Post comment</button>
+      </div>
+      <p class="comment-msg" id="comment-msg"></p>
+    </form>
+    <script>
+      (function () {
+        var form = document.getElementById('comment-form');
+        if (!form) return;
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          var msg = document.getElementById('comment-msg');
+          var data = {
+            post_id: {{post.id}},
+            author: form.author.value,
+            email: form.email.value,
+            content: form.content.value,
+            website: form.website.value
+          };
+          try {
+            var res = await fetch('{{baseUrl}}/api/public/comments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+            var json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Error posting comment');
+            form.reset();
+            msg.textContent = json.message;
+            msg.className = 'comment-msg ok';
+          } catch (err) {
+            msg.textContent = err.message;
+            msg.className = 'comment-msg err';
+          }
+        });
+      })();
+    </script>
+    {{else}}
+    <p class="no-results">Comments are closed.</p>
+    {{/if}}
+  </section>
+</div>
+
+{{> footer}}
