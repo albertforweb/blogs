@@ -24,6 +24,15 @@ export const IAM_INTROSPECT_HEADER = (process.env.IAM_INTROSPECT_HEADER || 'x-ia
 export const IAM_INTROSPECT_TIMEOUT = Number(process.env.IAM_INTROSPECT_TIMEOUT || 5000);
 export const IAM_INTROSPECT_SECRET = process.env.IAM_INTROSPECT_SECRET || '';
 
+// Optional application-owned authorization manifest registration. When the
+// manifest URL is configured, startup reconciliation is required by default.
+export const IAM_MANIFEST_URL = process.env.IAM_MANIFEST_URL || '';
+export const IAM_CLIENT_ID = process.env.IAM_CLIENT_ID || 'blogs-api';
+export const IAM_CLIENT_SECRET = process.env.IAM_CLIENT_SECRET || '';
+export const IAM_MANIFEST_VERSION = process.env.IAM_MANIFEST_VERSION || '1.0.0';
+export const IAM_REGISTRATION_TIMEOUT = Number(process.env.IAM_REGISTRATION_TIMEOUT || 5000);
+export const IAM_REGISTRATION_REQUIRED = process.env.IAM_REGISTRATION_REQUIRED !== 'false';
+
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }

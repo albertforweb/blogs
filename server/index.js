@@ -1,10 +1,11 @@
 import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
-import { PORT, UPLOADS_DIR, ADMIN_DIST, ALLOWED_ORIGINS } from './config.js';
+import { PORT, UPLOADS_DIR, ADMIN_DIST, ALLOWED_ORIGINS, IAM_REGISTRATION_REQUIRED } from './config.js';
 import { db } from './db.js';
 import { getSetting, getSettings, getSitePath, absUrl, renderPage } from './theme.js';
 import { mdToHtml, htmlToPlainText } from './md.js';
+import { reconcileIamAuthorizationManifest } from './iam-registration.js';
 
 import authRouter from './routes/auth.js';
 import postsRouter from './routes/posts.js';
@@ -380,9 +381,27 @@ app.use((err, req, res, next) => {
   res.status(404).type('html').send('<h1>404</h1><p>Not found</p>');
 });
 
-app.listen(PORT, () => {
-  console.log(`Blogs CMS listening on http://localhost:${PORT}`);
-  console.log(`  Admin panel: http://localhost:${PORT}/admin/`);
-  console.log(`  Public site: http://localhost:${PORT}/`);
-  console.log(`  (override the port with PORT=<number>; build the admin panel first with: npm run build)`);
-});
+async function start() {
+  try {
+    const registration = await reconcileIamAuthorizationManifest();
+    if (registration.enabled) {
+      console.log(`Registered blogs authorization manifest with IAM (${registration.manifest.version})`);
+    }
+  } catch (error) {
+    console.error(`[startup] ${error.message}`);
+    if (IAM_REGISTRATION_REQUIRED) {
+      process.exitCode = 1;
+      return;
+    }
+    console.warn('[startup] Continuing because IAM_REGISTRATION_REQUIRED=false');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Blogs CMS listening on http://localhost:${PORT}`);
+    console.log(`  Admin panel: http://localhost:${PORT}/admin/`);
+    console.log(`  Public site: http://localhost:${PORT}/`);
+    console.log(`  (override the port with PORT=<number>; build the admin panel first with: npm run build)`);
+  });
+}
+
+await start();

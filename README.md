@@ -217,6 +217,27 @@ reachable — that's why the default (local JWT / API keys) is recommended for i
 Roles from IAM map directly (`admin/editor/author/subscriber`); IAM-authenticated requests are
 read-only unless the mapped role is an author-equivalent and a `write`-gated endpoint is called.
 
+### IAM authorization manifest registration
+
+Blogs owns the canonical definitions of its application roles and permissions in
+`server/authorization-manifest.js`. When `IAM_MANIFEST_URL` is configured, blogs performs an
+idempotent `PUT` reconciliation during startup using its confidential IAM client credentials.
+IAM adds or updates the definitions and role-permission links, preserves existing assignments, and
+does not delete definitions omitted from a later manifest.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `IAM_MANIFEST_URL` | *(empty = disabled)* | IAM endpoint such as `http://localhost:3000/v1/clients/blogs-api/authorization-manifest` |
+| `IAM_CLIENT_ID` | `blogs-api` | Pre-registered IAM application client ID |
+| `IAM_CLIENT_SECRET` | *(empty)* | Secret for the confidential IAM client; never commit it |
+| `IAM_MANIFEST_VERSION` | `1.0.0` | Version recorded for this deployed manifest |
+| `IAM_REGISTRATION_TIMEOUT` | `5000` | Registration timeout in milliseconds |
+| `IAM_REGISTRATION_REQUIRED` | `true` when configured | Set to `false` only for an explicitly degraded local startup |
+
+The IAM client must be created before blogs starts. Registration does not grant cross-application
+delegation; an IAM administrator must separately configure which source applications may exchange
+user tokens for the `blogs-api` audience.
+
 ### Configuration (environment variables)
 
 | Variable | Default | Purpose |

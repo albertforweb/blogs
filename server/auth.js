@@ -7,6 +7,7 @@ import {
   IAM_INTROSPECT_HEADER,
   IAM_INTROSPECT_TIMEOUT,
   IAM_INTROSPECT_SECRET,
+  IAM_CLIENT_ID,
 } from './config.js';
 import { db } from './db.js';
 
@@ -83,16 +84,20 @@ async function introspectIam(requestHeaders) {
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || data.active === false) return null;
-    let role = String(data.role || 'subscriber').toLowerCase();
-    if (!['admin', 'editor', 'author', 'subscriber'].includes(role)) role = 'subscriber';
+    if (data.aud !== IAM_CLIENT_ID) return null;
+    const roles = Array.isArray(data.roles) ? data.roles.map((value) => String(value).toLowerCase()) : [];
+    const role = ['admin', 'editor', 'author', 'subscriber'].find((candidate) => roles.includes(candidate)) || 'subscriber';
+    const permissions = Array.isArray(data.permissions) ? data.permissions.filter((value) => typeof value === 'string') : [];
     return {
       type: 'iam',
-      scopes: ['read'],
+      scopes: [...new Set(['read', ...permissions])],
       user: {
         id: data.sub != null ? `iam:${data.sub}` : null,
         username: data.username || data.email || data.sub || 'iam-user',
         email: data.email || null,
         role,
+        roles,
+        permissions,
         iam: true,
         name: data.name || null,
       },
