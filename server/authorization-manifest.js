@@ -12,7 +12,7 @@ export const BLOGS_AUTHORIZATION_MANIFEST = Object.freeze({
     { name: 'blogs:comment:moderate', description: 'Approve, reject, or delete comments' },
     { name: 'blogs:media:manage', description: 'Upload and manage media' },
     { name: 'blogs:settings:manage', description: 'Manage blog settings and themes' },
-    { name: 'blogs:user:manage', description: 'Manage local blog users' },
+    { name: 'blogs:user:manage', description: 'Manage Blogs membership through IAM' },
   ]),
   roles: Object.freeze([
     {

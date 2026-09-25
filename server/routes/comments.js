@@ -13,6 +13,7 @@ function canManage(req, res, next) {
     }
     return next();
   }
+  if (a.type === 'iam' && (a.user?.permissions || []).includes('blogs:comment:moderate')) return next();
   if ((a.scopes || []).includes('write')) return next();
   return res.status(403).json({ error: "API key lacks 'write' scope" });
 }

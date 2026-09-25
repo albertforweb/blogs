@@ -20,8 +20,8 @@ function normalizeScopes(scopes) {
 
 router.get('/', (req, res) => {
   const rows = db.prepare(
-    `SELECT k.id, k.name, k.scopes, k.created_by, k.created_at, k.last_used_at, k.revoked, u.username AS created_by_username
-     FROM api_keys k LEFT JOIN users u ON u.id = k.created_by
+    `SELECT k.id, k.name, k.scopes, k.created_by, k.created_by_subject, k.created_at, k.last_used_at, k.revoked, u.username AS created_by_username
+     FROM api_keys k LEFT JOIN legacy_users u ON u.id = k.created_by
      ORDER BY k.created_at DESC`
   ).all();
   res.json({ items: rows });
@@ -33,8 +33,14 @@ router.post('/', (req, res) => {
   const scopes = normalizeScopes((req.body || {}).scopes);
   const { raw, hash } = generateApiKey();
   const result = db.prepare(
-    'INSERT INTO api_keys (name, key_hash, scopes, created_by) VALUES (?, ?, ?, ?)'
-  ).run(name, hash, scopes.join(','), req.auth?.user?.id ?? null);
+    'INSERT INTO api_keys (name, key_hash, scopes, created_by, created_by_subject) VALUES (?, ?, ?, ?, ?)'
+  ).run(
+    name,
+    hash,
+    scopes.join(','),
+    Number.isInteger(req.auth?.user?.id) ? req.auth.user.id : null,
+    req.auth?.type === 'iam' ? String(req.auth.user.id) : null,
+  );
   res.status(201).json({
     id: Number(result.lastInsertRowid),
     name,

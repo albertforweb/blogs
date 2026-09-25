@@ -6,11 +6,11 @@ import { mdToHtml } from '../md.js';
 
 const router = express.Router();
 router.use(requireAuth);
-// Mutations (anything but GET) require the caller to hold 'write' scope (API keys/IAM)
-// or be a logged-in user with an author-equivalent role.
+// Reads and mutations are both checked. An authenticated IAM token without a
+// Blogs permission must not become a general-purpose Blogs session.
 router.use((req, res, next) => {
   if (req.method !== 'GET') return requireScope('write')(req, res, next);
-  return next();
+  return requireScope('read')(req, res, next);
 });
 
 function rowToPost(row) {
@@ -25,7 +25,10 @@ function rowToPost(row) {
     category_id: row.category_id,
     category: row.category_name ? { id: row.category_id, name: row.category_name, slug: row.category_slug } : null,
     author_id: row.author_id,
-    author: row.author_username ? { id: row.author_id, username: row.author_username } : null,
+    author: row.author_username || row.author_subject_id
+      ? { id: row.author_id ?? row.author_subject_id, username: row.author_username || null }
+      : null,
+    author_subject_id: row.author_subject_id || null,
     featured_image: row.featured_image,
     published_at: row.published_at,
     updated_at: row.updated_at,
@@ -100,10 +103,10 @@ router.get('/', (req, res) => {
   const total = db.prepare(`SELECT COUNT(*) AS c FROM posts p ${whereSql}`).get(...filters.params).c;
 
   const rows = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id
+     LEFT JOIN legacy_users u ON u.id = p.author_id
      ${whereSql}
      ORDER BY COALESCE(p.published_at, p.created_at) DESC
      LIMIT ? OFFSET ?`
@@ -128,8 +131,8 @@ router.get('/counts', (req, res) => {
 
 router.get('/recent', (req, res) => {
   const rows = db.prepare(
-    `SELECT p.id, p.title, p.slug, p.status, p.published_at, u.username AS author_username
-     FROM posts p LEFT JOIN users u ON u.id = p.author_id
+    `SELECT p.id, p.title, p.slug, p.status, p.published_at, COALESCE(u.username, p.author_subject_id) AS author_username
+     FROM posts p LEFT JOIN legacy_users u ON u.id = p.author_id
      ORDER BY COALESCE(p.published_at, p.created_at) DESC LIMIT ?`
   ).all(Math.min(20, parseInt(req.query.limit, 10) || 5));
   res.json({ items: rows });
@@ -142,10 +145,10 @@ router.post('/preview', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const row = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id
+     LEFT JOIN legacy_users u ON u.id = p.author_id
      WHERE p.id = ?`
   ).get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Post not found' });
@@ -165,21 +168,22 @@ router.post('/', (req, res) => {
   if (status === 'published' && !publishedAt) publishedAt = new Date().toISOString();
 
   const authorId = Number.isInteger(req.auth?.user?.id) ? req.auth.user.id : null;
+  const authorSubjectId = req.auth?.type === 'iam' ? String(req.auth.user.id) : null;
   const result = db.prepare(
-    `INSERT INTO posts (title, slug, excerpt, content, status, category_id, author_id, featured_image, published_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO posts (title, slug, excerpt, content, status, category_id, author_id, author_subject_id, featured_image, published_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     b.title.trim(), slug, b.excerpt || '', b.content || '', status,
-    b.category_id || null, authorId, b.featured_image || null, publishedAt
+    b.category_id || null, authorId, authorSubjectId, b.featured_image || null, publishedAt
   );
 
   const postId = Number(result.lastInsertRowid);
   syncTags(postId, b.tags || []);
   const row = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id WHERE p.id = ?`
+     LEFT JOIN legacy_users u ON u.id = p.author_id WHERE p.id = ?`
   ).get(postId);
   const post = rowToPost(row);
   post.tags = tagsForPost(post.id);
@@ -222,10 +226,10 @@ router.put('/:id', (req, res) => {
 
   if (b.tags !== undefined) syncTags(row.id, b.tags);
   const updated = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id WHERE p.id = ?`
+     LEFT JOIN legacy_users u ON u.id = p.author_id WHERE p.id = ?`
   ).get(row.id);
   const post = rowToPost(updated);
   post.tags = tagsForPost(post.id);

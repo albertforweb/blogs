@@ -6,13 +6,21 @@ export const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA foreign_keys = ON;');
 
+// Older Blogs releases created a local `users` table. Rename it once so the
+// remaining rows are clearly legacy authorship data rather than an active
+// identity store. Authentication and authorization never read this table.
+const hasLegacyUsers = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get('users');
+const hasLegacyAuthors = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get('legacy_users');
+if (hasLegacyUsers && !hasLegacyAuthors) db.exec('ALTER TABLE users RENAME TO legacy_users');
+const legacyUserColumns = db.prepare('PRAGMA table_info(legacy_users)').all().map((column) => column.name);
+if (legacyUserColumns.includes('password_hash')) db.exec('ALTER TABLE legacy_users DROP COLUMN password_hash');
+
 export function initDb() {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS legacy_users (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       username      TEXT NOT NULL UNIQUE,
       email         TEXT,
-      password_hash TEXT NOT NULL,
       role          TEXT NOT NULL DEFAULT 'editor',
       created_at    TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
@@ -42,7 +50,8 @@ export function initDb() {
       content        TEXT NOT NULL DEFAULT '',
       status         TEXT NOT NULL DEFAULT 'draft',
       category_id    INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-      author_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      author_id      INTEGER REFERENCES legacy_users(id) ON DELETE SET NULL,
+      author_subject_id TEXT,
       featured_image TEXT,
       published_at   TEXT,
       created_at     TEXT NOT NULL DEFAULT (datetime('now')),
@@ -83,6 +92,7 @@ export function initDb() {
       key_hash    TEXT NOT NULL UNIQUE,
       scopes      TEXT NOT NULL DEFAULT 'read',
       created_by  INTEGER,
+      created_by_subject TEXT,
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       last_used_at TEXT,
       revoked     INTEGER NOT NULL DEFAULT 0
@@ -93,6 +103,11 @@ export function initDb() {
       value TEXT
     );
   `);
+
+  const postColumns = db.prepare('PRAGMA table_info(posts)').all().map((column) => column.name);
+  if (!postColumns.includes('author_subject_id')) db.exec('ALTER TABLE posts ADD COLUMN author_subject_id TEXT');
+  const apiKeyColumns = db.prepare('PRAGMA table_info(api_keys)').all().map((column) => column.name);
+  if (!apiKeyColumns.includes('created_by_subject')) db.exec('ALTER TABLE api_keys ADD COLUMN created_by_subject TEXT');
 
   const settingsCount = db.prepare('SELECT COUNT(*) AS c FROM settings').get().c;
   if (settingsCount === 0) {

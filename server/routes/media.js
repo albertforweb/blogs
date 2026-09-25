@@ -12,7 +12,7 @@ router.use(requireAuth);
 // GET = read scope (API keys can list media); mutate/upload requires 'write'.
 router.use((req, res, next) => {
   if (req.method !== 'GET') return requireScope('write')(req, res, next);
-  return next();
+  return requireScope('read')(req, res, next);
 });
 
 const storage = multer.diskStorage({

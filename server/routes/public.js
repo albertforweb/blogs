@@ -45,11 +45,11 @@ router.post('/comments', (req, res) => {
 
 const POST_SELECT = `SELECT p.*, 
   c.name AS category_name, c.slug AS category_slug,
-  u.username AS author_username,
+  COALESCE(u.username, p.author_subject_id) AS author_username,
   (SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id AND cm.status = 'approved') AS comment_count
  FROM posts p
  LEFT JOIN categories c ON c.id = p.category_id
- LEFT JOIN users u ON u.id = p.author_id`;
+ LEFT JOIN legacy_users u ON u.id = p.author_id`;
 
 function publicPost(row) {
   if (!row) return null;

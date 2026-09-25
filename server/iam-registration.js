@@ -21,7 +21,7 @@ function validateRegistrationUrl(value) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('IAM_MANIFEST_URL must use HTTP or HTTPS');
   }
-  if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+  if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:' && process.env.IAM_ALLOW_INSECURE_HTTP !== 'true') {
     throw new Error('IAM_MANIFEST_URL must use HTTPS in production');
   }
   return url.toString();

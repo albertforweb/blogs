@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
-import { PORT, UPLOADS_DIR, ADMIN_DIST, ALLOWED_ORIGINS, IAM_REGISTRATION_REQUIRED } from './config.js';
+import { PORT, PUBLIC_BASE_URL, UPLOADS_DIR, ADMIN_DIST, ALLOWED_ORIGINS, IAM_REGISTRATION_REQUIRED } from './config.js';
 import { db } from './db.js';
 import { getSetting, getSettings, getSitePath, absUrl, renderPage } from './theme.js';
 import { mdToHtml, htmlToPlainText } from './md.js';
@@ -13,7 +13,6 @@ import categoriesRouter from './routes/categories.js';
 import tagsRouter from './routes/tags.js';
 import mediaRouter from './routes/media.js';
 import settingsRouter from './routes/settings.js';
-import usersRouter from './routes/users.js';
 import commentsRouter from './routes/comments.js';
 import themesRouter from './routes/themes.js';
 import publicRouter from './routes/public.js';
@@ -63,7 +62,6 @@ app.use('/api/categories', categoriesRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api/settings', settingsRouter);
-app.use('/api/users', usersRouter);
 app.use('/api/comments', commentsRouter);
 app.use('/api/themes', themesRouter);
 app.use('/api/public', publicRouter);
@@ -149,10 +147,10 @@ function fetchPublishedPage(filters, page, context) {
   const total = db.prepare(`SELECT COUNT(*) AS c FROM posts p ${whereSql}`).get(...params).c;
   const pages = Math.max(1, Math.ceil(total / perPage));
   const rows = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id
+     LEFT JOIN legacy_users u ON u.id = p.author_id
      ${whereSql}
      ORDER BY COALESCE(p.published_at, p.created_at) DESC
      LIMIT ? OFFSET ?`
@@ -193,10 +191,10 @@ app.get('/', (req, res) => {
 // Single post (default permalink)
 app.get('/post/:slug', (req, res) => {
   const post = db.prepare(
-    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+    `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN users u ON u.id = p.author_id
+     LEFT JOIN legacy_users u ON u.id = p.author_id
      WHERE p.slug = ? AND p.status = 'published'`
   ).get(req.params.slug);
   if (!post) return renderPage(res, 'notfound', { ...pageMeta('404', 'Not found') }, 404);
@@ -332,10 +330,10 @@ app.get('/:slug', (req, res) => {
     return renderPage(res, 'notfound', { ...pageMeta('404', 'Not found') }, 404);
   }
   const post = db.prepare(
-      `SELECT p.*, c.name AS category_name, c.slug AS category_slug, u.username AS author_username
+      `SELECT p.*, c.name AS category_name, c.slug AS category_slug, COALESCE(u.username, p.author_subject_id) AS author_username
        FROM posts p
        LEFT JOIN categories c ON c.id = p.category_id
-       LEFT JOIN users u ON u.id = p.author_id
+       LEFT JOIN legacy_users u ON u.id = p.author_id
        WHERE p.slug = ? AND p.status = 'published'`
     ).get(req.params.slug);
   if (!post) return renderPage(res, 'notfound', { ...pageMeta('404', 'Not found') }, 404);
@@ -397,9 +395,9 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`Blogs CMS listening on http://localhost:${PORT}`);
-    console.log(`  Admin panel: http://localhost:${PORT}/admin/`);
-    console.log(`  Public site: http://localhost:${PORT}/`);
+    console.log(`Blogs CMS listening on ${PUBLIC_BASE_URL}`);
+    console.log(`  Admin panel: ${PUBLIC_BASE_URL}/admin/`);
+    console.log(`  Public site: ${PUBLIC_BASE_URL}/`);
     console.log(`  (override the port with PORT=<number>; build the admin panel first with: npm run build)`);
   });
 }

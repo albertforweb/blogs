@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Handlebars from 'handlebars';
-import { THEMES_DIR } from './config.js';
+import { THEMES_DIR, SITE_PATH } from './config.js';
 import { db } from './db.js';
 import { mdToHtml, htmlToPlainText } from './md.js';
 
@@ -11,7 +11,8 @@ export function getSetting(key) {
 }
 
 export function getSitePath() {
-  const raw = getSetting('site_path') || '';
+  const configured = getSetting('site_path');
+  const raw = configured ?? SITE_PATH;
   return raw ? `/${raw.replace(/^\/+|\/+$/g, '')}` : '';
 }
 
